@@ -1,4 +1,4 @@
-import express, { Request, Response, Express, response } from 'express'
+import express, { Request, Response, Express, response, Router } from 'express'
 import {
 	BlogType,
 	DBBlogType,
@@ -28,101 +28,106 @@ const getBlogViewModel = (dbBlog: BlogType): BlogViewModel => {
 	}
 }
 
-const nameValidation = body('name').trim().isLength({ min: 1, max: 15 })
-const descriptionValidation = body('description')
-	.trim()
-	.isLength({ min: 1, max: 500 })
-const websiteUrlValidation = body('websiteUrl').trim().isURL()
+export const getBlogsRouter = (db: DBBlogType) => {
+	const nameValidation = body('name').trim().isLength({ min: 1, max: 15 })
+	const descriptionValidation = body('description')
+		.trim()
+		.isLength({ min: 1, max: 500 })
+	const websiteUrlValidation = body('websiteUrl').trim().isURL()
 
-export const blogsRouter = express.Router()
+	const blogsRouter = express.Router()
 
-type errorMessageType = {
-	field: string
-	message: string
-}
-
-blogsRouter.get(
-	'/',
-	(req: RequestWithQuery<QueryBlogModel>, res: Response<BlogViewModel[]>) => {
-		const blogs = blogsRepository.findBlogs(req.query.name)
-
-		res.json(blogs.map(getBlogViewModel))
+	type errorMessageType = {
+		field: string
+		message: string
 	}
-)
 
-blogsRouter.get(
-	'/:id',
-	(
-		req: RequestWithParams<URIParamsBlogsModel>,
-		res: Response<BlogViewModel>
-	) => {
-		const blogs = blogsRepository.findBlog(req.params.id)
-		if (!blogs) {
-			res.sendStatus(404)
+	blogsRouter.get(
+		'/',
+		(req: RequestWithQuery<QueryBlogModel>, res: Response<BlogViewModel[]>) => {
+			const blogs = blogsRepository.findBlogs(req.query.name)
+
+			res.json(blogs.map(getBlogViewModel))
+		}
+	)
+
+	blogsRouter.get(
+		'/:id',
+		(
+			req: RequestWithParams<URIParamsBlogsModel>,
+			res: Response<BlogViewModel>
+		) => {
+			const blogs = blogsRepository.findBlog(req.params.id)
+			if (!blogs) {
+				res.sendStatus(404)
+				return
+			}
+			res.json(getBlogViewModel(blogs))
+		}
+	)
+
+	blogsRouter.post(
+		'/',
+		nameValidation,
+		descriptionValidation,
+		websiteUrlValidation,
+		inputValidationMiddleware,
+		(req: RequestWithBody<CreateNewBlogModel>, res) => {
+			const result = validationResult(req)
+			if (result.isEmpty()) {
+				const blogs = blogsRepository.createBlog(
+					req.body.name,
+					req.body.description,
+					req.body.websiteUrl
+				)
+				res.status(201).send(blogs)
+			}
+			res.send({ errors: result.array() })
 			return
 		}
-		res.json(getBlogViewModel(blogs))
-	}
-)
+	)
+	blogsRouter.put(
+		'/:id',
+		nameValidation,
+		descriptionValidation,
+		websiteUrlValidation,
+		inputValidationMiddleware,
+		(
+			req: RequestWithParamsAndBody<URIParamsBlogsModel, UpdateBlogModel>,
+			res
+		) => {
+			const result = validationResult(req)
 
-blogsRouter.post(
-	'/',
-	nameValidation,
-	descriptionValidation,
-	websiteUrlValidation,
-	inputValidationMiddleware,
-	(req: RequestWithBody<CreateNewBlogModel>, res) => {
-		const result = validationResult(req)
-		if (result.isEmpty()) {
-			const blogs = blogsRepository.createBlog(
-				req.body.name,
-				req.body.description,
-				req.body.websiteUrl
-			)
-			res.status(201).send(blogs)
+			if (result.isEmpty()) {
+				const isUpdated = blogsRepository.updateProduct(
+					req.params.id,
+					req.body.name,
+					req.body.description,
+					req.body.websiteUrl
+				)
+
+				if (isUpdated) {
+					const blog = blogsRepository.findBlog(req.params.id)
+					res.send(blog)
+				} else {
+					res.send(404)
+				}
+			}
+			res.send({ errors: result.array() })
 		}
-		res.send({ errors: result.array() })
-	}
-)
-blogsRouter.put(
-	'/:id',
-	nameValidation,
-	descriptionValidation,
-	websiteUrlValidation,
-	inputValidationMiddleware,
-	(
-		req: RequestWithParamsAndBody<URIParamsBlogsModel, UpdateBlogModel>,
-		res
-	) => {
-		const result = validationResult(req)
+	)
 
-		if (result.isEmpty()) {
-			const isUpdated = blogsRepository.updateProduct(
-				req.params.id,
-				req.body.name,
-				req.body.description,
-				req.body.websiteUrl
-			)
-
-			if (isUpdated) {
-				const blog = blogsRepository.findBlog(req.params.id)
-				res.send(blog)
+	blogsRouter.delete(
+		'/:id',
+		(req: RequestWithParams<URIParamsBlogsModel>, res) => {
+			const isDeleted = blogsRepository.deleteProduct(req.params.id)
+			if (isDeleted) {
+				res.send(204)
 			} else {
 				res.send(404)
+				return
 			}
 		}
-		res.send({ errors: result.array() })
-	}
-)
-
-blogsRouter.delete(
-	'/:id',
-	(req: RequestWithParams<URIParamsBlogsModel>, res) => {
-		const isDeleted = blogsRepository.deleteProduct(req.params.id)
-		if (isDeleted) {
-			res.send(204)
-		} else {
-			res.send(404)
-		}
-	}
-)
+	)
+	return blogsRouter
+}
