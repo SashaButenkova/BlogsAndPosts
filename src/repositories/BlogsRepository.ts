@@ -5,75 +5,80 @@ export type BlogType = {
 	websiteUrl: string
 }
 
-export const blogsDb: { blogs: BlogType[] } = {
-	blogs: [
-		{
-			id: '1',
-			name: 'bla',
-			description: 'blaa',
-			websiteUrl: 'blaaaaa',
-		},
-		{
-			id: '2',
-			name: 'bla',
-			description: 'blaa',
-			websiteUrl: 'blaaaaa',
-		},
-	],
-}
+export const blogsDb: BlogType[] = [
+	{
+		id: '1',
+		name: 'bla',
+		description: 'blaa',
+		websiteUrl: 'blaaaaa',
+	},
+	{
+		id: '2',
+		name: 'bla',
+		description: 'blaa',
+		websiteUrl: 'blaaaaa',
+	},
+]
 
-export type DBBlogType = {
-	blogs: BlogType[]
-}
+// export type DBBlogType = {
+// 	blogs: BlogType[]
+// }
 
 export const blogsRepository = {
-	findBlog(id: string) {
-		const a = blogsDb.blogs.find(v => v.id === id)
-		return a
+	async findBlog(id: string): Promise<BlogType | undefined> {
+		return blogsDb.find(b => b.id === id)
 	},
 
-	findBlogs(name?: string) {
-		return name
-			? blogsDb.blogs.filter(v => v.name.indexOf(name) > -1)
-			: blogsDb.blogs
+	async findBlogs(): Promise<BlogType[]> {
+		return blogsDb
 	},
 
-	createBlog(name: string, description: string, websiteUrl: string) {
-		const newBlog = {
-			id: crypto.randomUUID(),
-			name: name,
-			description: description,
-			websiteUrl: websiteUrl,
+	async createBlog(
+		name: string,
+		description: string,
+		websiteUrl: string
+	): Promise<BlogType> {
+		const id = new Date()
+		let newBlog = {
+			id: id.toISOString(),
+			name,
+			description,
+			websiteUrl,
 		}
 
-		blogsDb.blogs.push(newBlog)
+		blogsDb.push(newBlog)
 		return newBlog
 	},
 
-	updateProduct(
+	async updateBlog(
 		id: string,
 		name: string,
 		description: string,
 		websiteUrl: string
-	) {
-		let blog = blogsDb.blogs.find(b => b.id === id)
+	): Promise<BlogType | undefined> {
+		let blog = blogsDb.find(b => b.id === id)
 
 		if (blog) {
 			;(blog.name = name),
 				(blog.description = description),
 				(blog.websiteUrl = websiteUrl)
-			return true
 		}
-		return false
+		const foundBlog = {
+			id: id,
+			name,
+			description,
+			websiteUrl,
+		}
+
+		const indexBlog: number = blogsDb.findIndex(b => b.id === id)
+
+		blogsDb.splice(indexBlog, 1, foundBlog)
+		return
 	},
 
-	deleteProduct(id: string) {
-		for (let i = 0; i < blogsDb.blogs.length; i++) {
-			if (blogsDb.blogs[i].id === id) {
-				blogsDb.blogs.splice(i, 1)
-				return true
-			}
-			return false
-		}
+	async deleteBlog(id: string): Promise<BlogType | undefined> {
+		const indexBlog = blogsDb.findIndex(b => b.id === id)
+		blogsDb.splice(indexBlog, 1)
+		return
 	},
 }

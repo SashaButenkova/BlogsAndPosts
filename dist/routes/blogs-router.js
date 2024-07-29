@@ -6,7 +6,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.blogsRouter = void 0;
 const express_1 = __importDefault(require("express"));
 const BlogsRepository_1 = require("../repositories/BlogsRepository");
-const express_validator_1 = require("express-validator");
 const input_validation_middleware_1 = require("../middlewares/input-validation-middleware");
 const getBlogViewModel = (dbBlog) => {
     return {
@@ -22,50 +21,37 @@ const getBlogViewModel = (dbBlog) => {
 // 	.isLength({ min: 1, max: 500 })
 // const websiteUrlValidation = body('websiteUrl').trim().isURL()
 exports.blogsRouter = express_1.default.Router({});
-exports.blogsRouter.get('/', (req, res) => {
-    const blogs = BlogsRepository_1.blogsRepository.findBlogs(req.query.name);
-    res.json(blogs.map(getBlogViewModel));
+exports.blogsRouter.get('/', async (req, res) => {
+    const getBlogs = await BlogsRepository_1.blogsRepository.findBlogs();
+    res.send(getBlogs);
 });
-exports.blogsRouter.get('/:id', (req, res) => {
-    const blogs = BlogsRepository_1.blogsRepository.findBlog(req.params.id);
-    if (!blogs) {
+exports.blogsRouter.get('/:id', async (req, res) => {
+    let foundedBlogById = await BlogsRepository_1.blogsRepository.findBlog(req.params.id);
+    if (!foundedBlogById) {
+        res.sendStatus(404);
+    }
+    else {
+        res.status(200).send(foundedBlogById);
+    }
+});
+exports.blogsRouter.post('/', (0, input_validation_middleware_1.BlogValidation)(), async (req, res) => {
+    let createNewBlog = await BlogsRepository_1.blogsRepository.createBlog(req.body.name, req.body.description, req.body.websiteUrl);
+    res.status(201).send(createNewBlog);
+});
+exports.blogsRouter.put('/:id', (0, input_validation_middleware_1.BlogValidation)(), async (req, res) => {
+    const blog = await BlogsRepository_1.blogsRepository.findBlog(req.params.id);
+    if (!blog) {
+        return res.sendStatus(404);
+    }
+    await BlogsRepository_1.blogsRepository.updateBlog(req.params.id, req.body.name, req.body.description, req.body.websiteUrl);
+    res.sendStatus(204);
+});
+exports.blogsRouter.delete('/:id', async (req, res) => {
+    const blog = await BlogsRepository_1.blogsRepository.findBlog(req.params.id);
+    if (!blog) {
         res.sendStatus(404);
         return;
     }
-    res.json(getBlogViewModel(blogs));
-});
-exports.blogsRouter.post('/', input_validation_middleware_1.BlogValidation, (req, res) => {
-    const result = (0, express_validator_1.validationResult)(req);
-    if (result.isEmpty()) {
-        const blogs = BlogsRepository_1.blogsRepository.createBlog(req.body.name, req.body.description, req.body.websiteUrl);
-        res.status(201).send(blogs);
-    }
-    res.send({ errors: result.array() });
-    return;
-});
-exports.blogsRouter.put('/:id', input_validation_middleware_1.BlogValidation, (req, res) => {
-    const result = (0, express_validator_1.validationResult)(req);
-    if (result.isEmpty()) {
-        const isUpdated = BlogsRepository_1.blogsRepository.updateProduct(req.params.id, req.body.name, req.body.description, req.body.websiteUrl);
-        if (isUpdated) {
-            const blog = BlogsRepository_1.blogsRepository.findBlog(req.params.id);
-            res.send(blog);
-        }
-        else {
-            res.send(404);
-            return;
-        }
-    }
-    res.send({ errors: result.array() });
-    return;
-});
-exports.blogsRouter.delete('/:id', (req, res) => {
-    const isDeleted = BlogsRepository_1.blogsRepository.deleteProduct(req.params.id);
-    if (isDeleted) {
-        res.send(204);
-    }
-    else {
-        res.send(404);
-        return;
-    }
+    await BlogsRepository_1.blogsRepository.deleteBlog(req.params.id);
+    res.sendStatus(204);
 });
